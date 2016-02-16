@@ -14,10 +14,10 @@ void main(string[] args)
     int[] pt = [6, 3, 0, 1];
     if (args.length == 4 || args.length == 8) switch (args[3])
     {
-        case "f": break;
-        case "t": pt = [5, 2, 0, 1]; break;
-        case "s": pt = [4, 1, 0, 1]; break;
-        case "y": pt = [3, 0, 0, 1]; break;
+        case "f": break;                    // feng huang
+        case "t": pt = [5, 2, 0, 1]; break; // te shang
+        case "s": pt = [4, 1, 0, 1]; break; // shang ji
+        case "y": pt = [3, 0, 0, 1]; break; // yi ban
         default: stderr.writeln("Wrong table specification. Default value f used."); break;
     }
     real[] pr = [1, 1, 1, 1];
@@ -37,11 +37,11 @@ Params:
     trial = the number of simulations.
 
 Returns:
-    The array of convergent dans. length == trial.
+    The sorted array of convergent dans. length == trial.
     For tenhou.net setting, subtract 2 from each element of the result.
 
 Complexity:
-    O(pr.length * count * trial) time and O(trial) space.
+    O((pr.length * count + log(trial)) * trial) time and O(trial) space.
 */
 auto probabilistic(T, P)(T[] pr, P[] pt, in size_t count, in size_t trial)
 in
