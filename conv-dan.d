@@ -28,6 +28,81 @@ void main(string[] args)
     "%(%f\n%)".writefln(pr.probabilistic(pt, count, trial));
 }
 
+import std.typecons;
+alias Pair = Tuple!(real, real);
+
+/** Binary search for fuzzy function.
+
+The algorithm is quite similar to ordinary binary search except that
+the search is terminated when the in condition is not met.
+*/
+Pair fuzzyBinarySearch(alias f)(in real l, in real fl, in real ff, in real r, in real fr)
+in
+{
+    assert (l < r);
+    assert (fl < ff);
+    assert (ff < fr);
+}
+body
+{
+    immutable
+        m = (l + r) / 2,
+        fm = f(m);
+    import std.experimental.logger;
+    tracef("%f => %f", m, fm);
+    if (fm < fl) return Pair(l, r-l);
+    if (fr < fm) return Pair(r, r-l);
+    if (ff == fm) return Pair(m, r-l);
+    if (ff < fm) return fuzzyBinarySearch!f(l, fl, ff, m, fm);
+    if (fm < ff) return fuzzyBinarySearch!f(m, fm, ff, r, fr);
+    assert (false);
+}
+///
+unittest
+{
+    import std.stdio;
+    int[] pt = [6, 3, 0, 1]; // feng huang
+    int count = 100; // the number of games
+    int trial = 1000000; // the number of simulations
+    int rank   =  50000; // 5% of trial
+
+    auto p = fuzzyBinarySearch!
+    ((real m) => m.pr.quantile!"b < a"(pt, count, trial, rank))
+    (0, 0, 13, 2, real.infinity);
+    immutable
+        lower = p[0] - p[1]/2,
+        upper = p[0] + p[1]/2;
+    stderr.writefln("top-per-last ratio: [%f .. %f]", lower, upper);
+    stderr.writefln("convergent dan(+2; 5%%): [%f .. %f]", lower.pr.cd(pt), upper.pr.cd(pt));
+}
+
+/** Convergent dan for given rank distribution and points. */
+auto cd(T, P)(T[] pr, P[] pt)
+in
+{
+    assert (pr.length == pt.length);
+}
+body
+{
+    real gain = 0;
+    foreach (i; 0..pr.length - 1)
+        gain += pr[i] * pt[i];
+    return gain / (pr[$-1] * pt[$-1]);
+}
+
+/** A vector of the probability of a player getting the ranks.
+
+Params:
+    tpl = top-per-last ratio.
+
+Returns:
+    A four-element arithmetic progression whose first element is tpl times the last element.
+*/
+auto pr(real tpl)
+{
+    return [tpl*3, tpl*2+1, tpl+2, 3];
+}
+
 /** The probabilistic simulation for convergent dan.
 
 Params:
@@ -91,4 +166,29 @@ auto simulate(T, P)(T[] pr, P[] pt, in size_t count)
             pts += pt[rank];
     }
     return pts / (pt[$ - 1] * lasts.to!real);
+}
+
+/** The probabilistic simulation for convergent dan.
+
+Params:
+    pr = the vector proportional to probability of each rank.
+    pt = the point a player gains for each rank (except the last place), and the point a player loses for the last place per his/her current dan.
+    count = the number of games per simulation.
+    trial = the number of simulations.
+    rank = the indicator of the returned value.
+
+Returns:
+    The rank-th smallest (according to less, i.e., if less is "a < b", smallest, if less is "b < a", largest) value of convergent dans for trial-times simulations.
+    For tenhou.net setting, subtract 2 from each element of the result.
+
+Complexity:
+    O((pr.length * count + log(rank)) * trial) time and O(rank) space.
+*/
+auto quantile(alias less="a<b", T, P)(T[] pr, P[] pt, in size_t count, in size_t trial, in size_t rank)
+{
+    import std.container;
+    auto h = new real[rank].heapify!less(0);
+    foreach (i; 0..trial)
+        h.conditionalInsert(pr.simulate(pt, count));
+    return h.front;
 }
