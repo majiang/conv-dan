@@ -48,10 +48,11 @@ body
     immutable
         m = (l + r) / 2,
         fm = f(m);
-    import std.experimental.logger;
+    import std.stdio, std.experimental.logger;
     tracef("%f => %f", m, fm);
-    if (fm < fl) return Pair(l, r-l);
-    if (fr < fm) return Pair(r, r-l);
+    stderr.flush;
+    if (fm <= fl) return Pair(l, r-l);
+    if (fr <= fm) return Pair(r, r-l);
     if (ff == fm) return Pair(m, r-l);
     if (ff < fm) return fuzzyBinarySearch!f(l, fl, ff, m, fm);
     if (fm < ff) return fuzzyBinarySearch!f(m, fm, ff, r, fr);
@@ -65,15 +66,22 @@ unittest
     int count = 100; // the number of games
     int trial = 1000000; // the number of simulations
     int rank   =  50000; // 5% of trial
+    real target = 13;
 
-    auto p = fuzzyBinarySearch!
-    ((real m) => m.pr.quantile!"b < a"(pt, count, trial, rank))
-    (0, 0, 13, 2, real.infinity);
-    immutable
-        lower = p[0] - p[1]/2,
-        upper = p[0] + p[1]/2;
-    stderr.writefln("top-per-last ratio: [%f .. %f]", lower, upper);
-    stderr.writefln("convergent dan(+2; 5%%): [%f .. %f]", lower.pr.cd(pt), upper.pr.cd(pt));
+    assert ((1-real.epsilon) * target != real(1)*target);
+    assert ((1+real.epsilon) * target != real(1)*target);
+    foreach (targetRatio; [1-real.epsilon, 1, 1+real.epsilon])
+    {
+        auto p = fuzzyBinarySearch!
+        ((real m) => m.pr.quantile!"b < a"(pt, count, trial, rank))
+        (0, 0, target * targetRatio, 2, real.infinity);
+        immutable
+            lower = p[0] - p[1]/2,
+            upper = p[0] + p[1]/2;
+        stderr.writefln("top-per-last ratio: [%f .. %f]", lower, upper);
+        stderr.writefln("convergent dan(+2; 5%%): [%f .. %f]", lower.pr.cd(pt), upper.pr.cd(pt));
+        stderr.writefln("pt=%s, count=%s, trial=%s, rank=%s, target=%f", pt, count, trial, rank, target * targetRatio);
+    }
 }
 
 /** Convergent dan for given rank distribution and points. */
