@@ -62,27 +62,44 @@ body
 unittest
 {
     import std.stdio;
-    int[] pt = [6, 3, 0, 1]; // feng huang
-    int count = 100; // the number of games
-    int trial = 1000000; // the number of simulations
-    int rank   =  50000; // 5% of trial
-    real target = 13;
+    auto pt = [6, 3, 0, 1];
+    auto results = findTpl(
+        pt,      // feng huang
+        100,     // the number of games
+        1000000, // the number of simulations
+          50000, // 5% of trial
+        13);
+    foreach (result; results)
+    {
+        immutable
+            lower = result[0],
+            upper = result[1];
+        stderr.writefln("top-per-last ratio: [%.15f .. %.15f]", lower, upper);
+        stderr.writefln("convergent dan(+2; 5%%): [%.15f .. %.15f]", lower.pr.cd(pt), upper.pr.cd(pt));
+    }
+}
 
-    assert ((1-real.epsilon) * target != real(1)*target);
-    assert ((1+real.epsilon) * target != real(1)*target);
-    foreach (targetRatio; [1-real.epsilon, 1, 1+real.epsilon])
+Pair[] findTpl(int[] pt, int games, int trial, int rank, real target)
+{
+    import std.stdio;
+    stderr.writefln("pt=%s, count=%s, trial=%s, rank=%s, target=%.15f", pt, games, trial, rank, target);
+    auto trs = [1-real.epsilon, 1, 1+real.epsilon];
+    assert (trs[0] * target != trs[1] * target);
+    assert (trs[2] * target != trs[1] * target);
+    Pair[] ret;
+    foreach (targetRatio; trs)
     {
         auto p = fuzzyBinarySearch!
-        ((real m) => m.pr.quantile!"b < a"(pt, count, trial, rank))
+        ((real m) => m.pr.quantile!"b < a"(pt, games, trial, rank))
         (0, 0, target * targetRatio, 2, real.infinity);
         immutable
             lower = p[0] - p[1]/2,
             upper = p[0] + p[1]/2;
-        stderr.writefln("top-per-last ratio: [%f .. %f]", lower, upper);
-        stderr.writefln("convergent dan(+2; 5%%): [%f .. %f]", lower.pr.cd(pt), upper.pr.cd(pt));
-        stderr.writefln("pt=%s, count=%s, trial=%s, rank=%s, target=%f", pt, count, trial, rank, target * targetRatio);
+        ret ~= Pair(lower, upper);
     }
+    return ret;
 }
+
 
 /** Convergent dan for given rank distribution and points. */
 auto cd(T, P)(T[] pr, P[] pt)
